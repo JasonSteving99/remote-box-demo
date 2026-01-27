@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote Code Execution Demo</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+
+        .content {
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .section {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section h2 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .code-editor-wrapper {
+            position: relative;
+            flex: 1;
+            min-height: 400px;
+        }
+
+        #codeInput {
+            height: 400px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .CodeMirror {
+            height: 100%;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            border-radius: 8px;
+        }
+
+        #codeInput:focus-within {
+            border-color: #667eea;
+        }
+
+        .button-container {
+            margin-top: 1rem;
+            display: flex;
+            gap: 1rem;
+        }
+
+        button {
+            padding: 0.75rem 2rem;
+            font-size: 1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        #executeBtn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            flex: 1;
+        }
+
+        #executeBtn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        #executeBtn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        #clearBtn {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        #clearBtn:hover {
+            background: #e0e0e0;
+        }
+
+        .output-container {
+            flex: 1;
+            min-height: 400px;
+            padding: 1rem;
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-y: auto;
+        }
+
+        .loading {
+            color: #667eea;
+            font-style: italic;
+        }
+
+        .error {
+            color: #dc3545;
+        }
+
+        .success {
+            color: #28a745;
+        }
+
+        @media (max-width: 968px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Remote Code Execution Demo</h1>
+            <p>Execute Python code safely in sandboxed E2B environments</p>
+        </div>
+
+        <div class="content">
+            <div class="section">
+                <h2>📝 Python Code</h2>
+                <div class="code-editor-wrapper">
+                    <div id="codeInput"></div>
+                </div>
+                <div class="button-container">
+                    <button id="executeBtn">Execute Code</button>
+                    <button id="clearBtn">Clear</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>📤 Output</h2>
+                <div id="output" class="output-container"><span style="color: #888;">Output will appear here...</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const executeBtn = document.getElementById('executeBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const output = document.getElementById('output');
+
+        // Initialize CodeMirror
+        const codeEditor = CodeMirror(document.getElementById('codeInput'), {
+            mode: 'python',
+            theme: 'dracula',
+            lineNumbers: true,
+            indentUnit: 4,
+            indentWithTabs: false,
+            lineWrapping: true,
+            value: `# Enter your Python code here...
+import os
+import sys
+
+print('Hello from E2B sandbox!')
+print(f'Python version: {sys.version}')
+print(f'Sandbox ID: {os.getenv("E2B_SANDBOX_ID")}')
+
+# Try some computation
+result = sum(range(100))
+print(f'Sum of 0-99: {result}')`
+        });
+
+        executeBtn.addEventListener('click', async () => {
+            const code = codeEditor.getValue().trim();
+
+            if (!code) {
+                output.innerHTML = '<span class="error">Please enter some Python code to execute.</span>';
+                return;
+            }
+
+            executeBtn.disabled = true;
+            output.innerHTML = '<span class="loading">⏳ Executing code in remote sandbox...</span>';
+
+            try {
+                const response = await fetch('/execute', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ code }),
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    if (result.error) {
+                        output.innerHTML = '<span class="error">' + escapeHtml(result.error) + '</span>';
+                    } else if (result.output) {
+                        output.innerHTML = '<span class="success">' + escapeHtml(result.output) + '</span>';
+                    } else {
+                        output.innerHTML = '<span style="color: #888;">Code executed successfully (no output)</span>';
+                    }
+                } else {
+                    output.innerHTML = '<span class="error">Request failed: ' + escapeHtml(result.detail || 'Unknown error') + '</span>';
+                }
+            } catch (error) {
+                output.innerHTML = '<span class="error">Network error: ' + escapeHtml(error.message) + '</span>';
+            } finally {
+                executeBtn.disabled = false;
+            }
+        });
+
+        clearBtn.addEventListener('click', () => {
+            codeEditor.setValue('');
+            output.innerHTML = '<span style="color: #888;">Output will appear here...</span>';
+        });
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
